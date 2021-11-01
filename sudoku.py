@@ -12,49 +12,58 @@ class Sudoku:
     def __init__(self, board):
         self.board = board
 
+        # Create a 
         self.rows = [set() for i in range(ROWS)]
         self.cols = [set() for i in range(COLS)]
         self.squares = [set() for i in range(SQUARES)]
+
+        self.cells = [[Int(f"{i}.{j}") for j in range(COLS)] for i in range(ROWS)]
+
+
+    def solve(self):
+        s = Solver()
         for i in range(ROWS):
             for j in range(COLS):
-                if board[i][j] != 0:
-                    self._fill_box(i, j, board[i][j])
 
-    def _fill_box(self, i, j, val):
-        self.board[i][j] = val
-        self.rows[i].add(val)
-        self.cols[j].add(val)
-        self.squares[self._get_square(i,j)].add(val)
+                if self.board[i][j] != 0:
+                    # If a number on the board is fixed, add a constraint requiring this
+                    s.add(self.cells[i][j] == self.board[i][j])
+                else:
+                    # Otherwise the cell can be any number in the range
+                    s.add(self.cells[i][j] >= 1, self.cells[i][j] <= SQUARE_ROWS * SQUARE_COLS)
+
+                # Add row, column, and box constraints, compared to cells already processed
+                s = self._add_neq_constraints(s, self.cells[i][j], self.rows[i])
+                s = self._add_neq_constraints(s, self.cells[i][j], self.cols[j])
+                s = self._add_neq_constraints(s, self.cells[i][j], self.squares[self._get_square(i, j)])
+
+                # Add this cell to row, column, and box sets to indicate that it has been processed
+                self._fill_cell(i, j, self.cells[i][j])
+                
+        if s.check() == sat:
+            return s.model()
+        else:
+            return None
+    
+    def print_board(self, board, accessor = lambda x : x):
+        for i in range(ROWS):
+            for j in range(COLS):
+                rep = accessor(board[i][j])
+                print(rep, end=' ')
+            print()
+
+    def _add_neq_constraints(self, solver, cell, iterator):
+        for val in iterator:
+            solver.add(Not(cell == val))
+        return solver
+
+    def _fill_cell(self, i, j, cell):
+        self.rows[i].add(cell)
+        self.cols[j].add(cell)
+        self.squares[self._get_square(i,j)].add(cell)
 
     def _get_square(self, i, j):
         row = i//SQUARE_X
         col = j//SQUARE_Y
         return SQUARE_Y * row + col
     
-    def solve(self):
-        s = Solver()
-        cells = [[Int(f"{i}.{j}") for j in range(COLS)] for i in range(ROWS)]
-        for i in range(ROWS):
-            for j in range(COLS):
-                if self.board[i][j] == 0:
-                    s.add(cells[i][j] >= 1, cells[i][j] <= SQUARE_ROWS * SQUARE_COLS)
-                    for val in self.rows[i]:
-                        s.add(Not(cells[i][j] == val))
-                    for val in self.cols[j]:
-                        s.add(Not(cells[i][j] == val))
-                    for val in self.squares[self._get_square(i, j)]:
-                        s.add(Not(cells[i][j] == val))
-                    self._fill_box(i, j, cells[i][j])
-                else:
-                    s.add(cells[i][j] == self.board[i][j])
-        if s.check() == sat:
-            return s.model(), cells
-        else:
-            return None
-    
-    def print_board(self, board, accessor):
-        for i in range(ROWS):
-            for j in range(COLS):
-                rep = accessor(board[i][j])
-                print(rep, end=' ')
-            print()

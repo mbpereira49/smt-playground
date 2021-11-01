@@ -13,7 +13,8 @@ board = [
 ]
 
 sud = Sudoku(board)
-m, cells = sud.solve()
+m = sud.solve()
+cells = sud.cells
 
 def access(elt):
     return m.eval(elt)
